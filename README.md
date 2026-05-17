@@ -137,179 +137,174 @@ RISC-V (RISC):
 ### Arquivo: `charge_control.s`
 
 ```asm
-# ============================================================
-# ChargeCore — Smart Charging Engine
-# Arquitetura: RISC-V (RV32I)
-# Sprint 1 — EV Challenge 2026 | FIAP + GoodWe
-#
-# Rotinas implementadas:
-#   1. demand_control    — Controle de demanda elétrica
-#   2. authenticate_user — Autenticação de usuário RFID
-#   3. read_sensor       — Leitura de sensor de potência
-#   4. send_ocpp_command — Envio de comando ao carregador
-# ============================================================
+; =========================================================
+; ChargeCore Firmware
+; NASM x86 32-bit
+; Compatível com OnlineGDB
+; =========================================================
 
-.section .data
-    # Limiares de potência (em Watts)
-    THRESHOLD_HIGH: .word 18000     # 18 kW — limiar crítico superior
-    THRESHOLD_LOW:  .word  5000     # 5 kW  — limiar mínimo
-    MAX_POWER:      .word 22000     # 22 kW — capacidade máxima
+section .data
 
-    # Tabela de usuários autorizados (hashes de 8 bytes)
-    MAX_USERS:      .word 64
-    authorized_hashes: .space 512   # 64 × 8 bytes
+sensor_potencia    dd 185
+limiar_maximo      dd 220
+nivel_demanda      dd 1
 
-    # Estado atual
-    current_power:  .word 0
-    charge_level:   .word 100       # percentual 0–100
+msg_auth           db "SESSAO AUTORIZADA", 10
+len_auth           equ $ - msg_auth
 
-    # Mensagens de log
-    msg_reduce:  .string "[CHARGECORE] Potencia acima do limite — reduzindo carga\n"
-    msg_increase:.string "[CHARGECORE] Potencia abaixo do minimo — aumentando carga\n"
-    msg_maintain:.string "[CHARGECORE] Potencia estavel — mantendo nivel\n"
-    msg_auth_ok: .string "[CHARGECORE] Usuario autorizado\n"
-    msg_auth_fail:.string "[CHARGECORE] Acesso negado\n"
+msg_ok             db "POTENCIA DENTRO DO LIMITE", 10
+len_ok             equ $ - msg_ok
 
-# ============================================================
-# Seção de texto (código executável)
-# ============================================================
-.section .text
-.global _start
-.global demand_control
-.global authenticate_user
+msg_high           db "POTENCIA ACIMA DO LIMITE", 10
+len_high           equ $ - msg_high
 
-# ------------------------------------------------------------
-# _start — Ponto de entrada principal
-# Loop de controle principal (executa continuamente)
-# ------------------------------------------------------------
+msg_low            db "CARGA: 7.0 kW", 10
+len_low            equ $ - msg_low
+
+msg_med            db "CARGA: 11.0 kW", 10
+len_med            equ $ - msg_med
+
+msg_max            db "CARGA: 22.0 kW", 10
+len_max            equ $ - msg_max
+
+section .text
+global _start
+
+; =========================================================
+; print
+; ecx = mensagem
+; edx = tamanho
+; =========================================================
+print:
+    mov eax, 4
+    mov ebx, 1
+    int 0x80
+    ret
+
+; =========================================================
+; monitor_power
+;
+; eax = 0 -> ok
+; eax = 1 -> acima limite
+; =========================================================
+monitor_power:
+
+    mov eax, [sensor_potencia]
+    cmp eax, [limiar_maximo]
+
+    jl potencia_ok
+
+    mov eax, 1
+    ret
+
+potencia_ok:
+    mov eax, 0
+    ret
+
+; =========================================================
+; adjust_charge
+;
+; eax = potência final
+; =========================================================
+adjust_charge:
+
+    mov eax, [nivel_demanda]
+
+    cmp eax, 0
+    je carga_baixa
+
+    cmp eax, 1
+    je carga_media
+
+carga_alta:
+    mov eax, 220
+    ret
+
+carga_media:
+    mov eax, 110
+    ret
+
+carga_baixa:
+    mov eax, 70
+    ret
+
+; =========================================================
+; MAIN
+; =========================================================
 _start:
-    # Inicializa registradores de limiares (ficam em cache)
-    la   s0, THRESHOLD_HIGH
-    lw   s0, 0(s0)              # s0 = 18000 (limiar alto)
-    la   s1, THRESHOLD_LOW
-    lw   s1, 0(s1)              # s1 = 5000  (limiar baixo)
-    la   s2, MAX_POWER
-    lw   s2, 0(s2)              # s2 = 22000 (potência máx)
 
-main_loop:
-    call demand_control         # executa controle de demanda
-    j    main_loop              # loop contínuo (bare-metal)
+    ; -------------------------
+    ; Autorização
+    ; -------------------------
+    mov ecx, msg_auth
+    mov edx, len_auth
+    call print
 
-# ------------------------------------------------------------
-# read_sensor — Lê potência atual do sensor via MODBUS
-# Saída: a0 = potência em Watts
-# Ciclos estimados: 8
-# ------------------------------------------------------------
-read_sensor:
-    la   t0, current_power
-    lw   a0, 0(t0)              # carrega valor do sensor
-    ret                         # retorna em a0
+    ; -------------------------
+    ; Monitoramento
+    ; -------------------------
+    call monitor_power
 
-# ------------------------------------------------------------
-# demand_control — Controle de Demanda Elétrica
-#
-# Lê sensor, compara com limiares e envia comando OCPP.
-# Opera com limiares pré-carregados em s0/s1 (sem leituras
-# de memória repetidas — localidade de registrador).
-#
-# Ciclos estimados: 28 (vs ~180 em C sem otimização)
-# Redução: ~84%
-# ------------------------------------------------------------
-demand_control:
-    addi sp, sp, -16            # aloca frame na pilha
-    sw   ra, 12(sp)             # salva endereço de retorno
-    sw   s3, 8(sp)              # salva registrador temporário
+    cmp eax, 0
+    je mostrar_ok
 
-    call read_sensor            # a0 = potência atual (W)
-    mv   s3, a0                 # s3 = potência lida
+mostrar_high:
 
-    # Decisão: verifica limiares em ordem de frequência
-    # (caso "manter" é o mais comum — avaliado por último
-    #  para branch prediction otimista)
-    bgt  s3, s0, dc_reduce      # se > 18kW: reduz carga
-    blt  s3, s1, dc_increase    # se < 5kW:  aumenta carga
+    mov ecx, msg_high
+    mov edx, len_high
+    call print
 
-dc_maintain:                    # caso mais comum
-    li   a0, 0x00               # comando OCPP: manter
-    call send_ocpp_command
-    j    dc_exit
+    jmp ajustar
 
-dc_reduce:
-    li   a0, 0x01               # comando OCPP: reduzir 10%
-    call send_ocpp_command
-    j    dc_exit
+mostrar_ok:
 
-dc_increase:
-    li   a0, 0x02               # comando OCPP: aumentar 10%
-    call send_ocpp_command
+    mov ecx, msg_ok
+    mov edx, len_ok
+    call print
 
-dc_exit:
-    lw   ra, 12(sp)             # restaura registradores
-    lw   s3, 8(sp)
-    addi sp, sp, 16             # libera frame
-    ret
+; -------------------------
+; Ajustar carga
+; -------------------------
+ajustar:
 
-# ------------------------------------------------------------
-# authenticate_user — Autenticação RFID/NFC
-#
-# Compara hash do cartão (8 bytes) com tabela autorizada.
-# Usa comparação word-by-word (2 loads × 4 bytes = 8 bytes).
-#
-# Entrada: a0 = ponteiro para hash do cartão (8 bytes)
-# Saída:   a0 = 1 (autorizado) | 0 (negado)
-# Ciclos estimados: 48 (caso médio) vs ~320 em C
-# Redução: ~85%
-# ------------------------------------------------------------
-authenticate_user:
-    addi sp, sp, -8
-    sw   ra, 4(sp)
+    call adjust_charge
 
-    la   t0, authorized_hashes  # t0 = início da tabela
-    la   t1, MAX_USERS
-    lw   t1, 0(t1)              # t1 = número máx de usuários
-    li   t2, 0                  # t2 = contador
+    cmp eax, 70
+    je print_low
 
-auth_loop:
-    bge  t2, t1, auth_fail      # todos checados → negado
+    cmp eax, 110
+    je print_med
 
-    # Compara primeiro word (bytes 0–3)
-    lw   t3, 0(a0)
-    lw   t4, 0(t0)
-    bne  t3, t4, auth_next
+print_max:
 
-    # Compara segundo word (bytes 4–7)
-    lw   t3, 4(a0)
-    lw   t4, 4(t0)
-    bne  t3, t4, auth_next
+    mov ecx, msg_max
+    mov edx, len_max
+    call print
 
-    # Hash idêntico: usuário autorizado
-    li   a0, 1
-    j    auth_exit
+    jmp fim
 
-auth_next:
-    addi t0, t0, 8              # avança para próximo hash
-    addi t2, t2, 1
-    j    auth_loop
+print_med:
 
-auth_fail:
-    li   a0, 0
+    mov ecx, msg_med
+    mov edx, len_med
+    call print
 
-auth_exit:
-    lw   ra, 4(sp)
-    addi sp, sp, 8
-    ret
+    jmp fim
 
-# ------------------------------------------------------------
-# send_ocpp_command — Envia comando ao OCPP Server
-# Entrada: a0 = código do comando (0x00, 0x01, 0x02)
-# Ciclos estimados: 12
-# ------------------------------------------------------------
-send_ocpp_command:
-    # Em hardware real: write no registrador UART/SPI
-    # Em simulação: store na área de saída mapeada
-    la   t0, 0x10000000         # endereço mapeado (MMIO)
-    sw   a0, 0(t0)
-    ret
+print_low:
+
+    mov ecx, msg_low
+    mov edx, len_low
+    call print
+
+; -------------------------
+; Exit
+; -------------------------
+fim:
+
+    mov eax, 1
+    mov ebx, 0
+    int 0x80
 ```
 
 ---
