@@ -250,13 +250,6 @@ Quando painéis solares geram excedente às 14h, o `monitor_power` detecta o eve
 
 ---
 
-## 🔧 Como Executar no OnlineGDB
-
-1. Acesse **[onlinegdb.com](https://www.onlinegdb.com/)**
-2. No seletor de linguagem (canto superior direito), escolha **Assembly (x86)**
-3. Cole o conteúdo do arquivo `chargecore_firmware.asm`
-4. Clique em **▶ Run**
-
 **Saída esperada no terminal:**
 ```
 SESSAO AUTORIZADA
