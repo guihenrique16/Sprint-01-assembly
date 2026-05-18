@@ -1,373 +1,245 @@
-[README.md](https://github.com/user-attachments/files/27902619/README.md)
-# ⚡ ChargeCore — Smart Charging Engine Embarcado para Eletropostos Comerciais
+⚡ ChargeCore — Módulo de Controle Embarcado para Eletropostos Comerciais
+EV Challenge 2026 · FIAP + GoodWe · Trilha: ChargeGrid Intelligence
+ Sprint 1 — Projeto Sustentável em Arquitetura de Computadores
 
-> **EV Challenge 2026 | FIAP + GoodWe**
-> Sprint 1 — Projeto Sustentável em Arquitetura de Computadores
+👥 Integrantes
+Nome
+RM
+(Nome completo)
+RM-XXXXX
+(Nome completo)
+RM-XXXXX
+(Nome completo)
+RM-XXXXX
 
----
 
-## 👥 Integrantes
+🔴 O Problema
+Eletropostos comerciais modernos operam 24 horas por dia, 7 dias por semana.
+ O software que gerencia suas operações críticas — autenticação de sessão, leitura de sensores de potência e controle de carga — geralmente roda em sistemas de alto nível (Python, Node.js, Java) sobre hardware genérico.
+Isso gera três consequências diretas:
+Consumo energético desnecessário no próprio controlador embarcado, que executa centenas de milhares de instruções onde bastam dezenas.
+Latência elevada na resposta a eventos críticos (pico de demanda, falha de sessão), comprometendo a segurança elétrica.
+Desperdício de recursos computacionais em tarefas simples e repetitivas, aumentando o custo de infraestrutura e o descarte eletrônico.
+Em uma rede com centenas de eletropostos ativos simultaneamente, esse desperdício computacional se traduz em quilowatts-hora perdidos — energia que poderia ir diretamente para os veículos.
 
-| Nome | RM |
-|------|----|
-| [Nome do Integrante 1] | RM000000 |
-| [Nome do Integrante 2] | RM000000 |
-| [Nome do Integrante 3] | RM000000 |
-| [Nome do Integrante 4] | RM000000 |
-| [Nome do Integrante 5] | RM000000 |
+💡 Justificativa
+A ineficiência está na camada de software, não no hardware.
+ Operações como ler um sensor, comparar um limiar de potência e ajustar a carga de saída são tarefas determinísticas e repetitivas — o cenário ideal para programação em Assembly.
+"Cada instrução que economizamos no controlador é energia que permanece na rede."
+A linguagem Assembly x86 32-bit (NASM) foi escolhida porque:
+Permite controle total sobre as instruções executadas pelo processador, sem overhead de compilador ou runtime.
+Utiliza chamadas de sistema diretas (int 0x80) — menos camadas de software, menos ciclos de clock.
+É transparente: cada linha de código corresponde a exatamente uma instrução de máquina. Nada é escondido.
+É executável no OnlineGDB, ferramenta utilizada em aula, sem necessidade de instalação.
 
-## 🎥 Entregáveis
+🛠️ Proposta de Solução
+ChargeCore é um módulo de firmware escrito em Assembly x86 32-bit (NASM) que substitui o software de alto nível nas operações críticas de um eletroposto comercial.
+Componentes do módulo
+┌──────────────────────────────────────────────────────┐
+│              ChargeCore Firmware (NASM x86 32-bit)   │
+│                                                      │
+│  ┌──────────────────┐    ┌─────────────────────────┐ │
+│  │  Autenticação    │    │   monitor_power         │ │
+│  │  (Assembly)      │    │   (Assembly)            │ │
+│  │                  │    │                         │ │
+│  │ Confirma sessão  │    │ Sensor (185) vs         │ │
+│  │ antes de carregar│    │ Limiar (220) → ok/high  │ │
+│  └────────┬─────────┘    └──────────┬──────────────┘ │
+│           │                         │                │
+│           └──────────┬──────────────┘                │
+│                      ▼                               │
+│           ┌───────────────────┐                      │
+│           │   adjust_charge   │                      │
+│           │   (Assembly)      │                      │
+│           │                   │                      │
+│           │ Saída: 7 / 11 /   │                      │
+│           │ 22 kW conforme    │                      │
+│           │ nivel_demanda     │                      │
+│           └───────────────────┘                      │
+└──────────────────────────────────────────────────────┘
 
-- **Vídeo Pitch:** [Inserir link do YouTube não-listado]
-- **Repositório GitHub:** [Inserir link do repositório]
+Fluxo de execução
+_start
+  │
+  ├─► print "SESSAO AUTORIZADA"
+  │
+  ├─► monitor_power()
+  │       │
+  │   [sensor=185] < [limiar=220]?
+  │       │
+  │      Sim ──► print "POTENCIA DENTRO DO LIMITE"
+  │      Não ──► print "POTENCIA ACIMA DO LIMITE"
+  │
+  └─► adjust_charge()
+          │
+      [nivel_demanda = 1]
+          │
+          └──► print "CARGA: 11.0 kW"
+               exit (0)
 
----
 
-## 🔍 Problema
+🏗️ Arquitetura Utilizada
+Componente
+Escolha
+Justificativa
+ISA
+x86 32-bit
+Arquitetura ensinada em aula, suportada pelo OnlineGDB
+Assembler
+NASM
+Sintaxe Intel clara, padrão no ambiente acadêmico
+Simulador/Executor
+OnlineGDB
+Execução e debug sem instalação, usado em aula
+Chamadas de sistema
+int 0x80 (Linux)
+Acesso direto ao kernel — zero dependência de biblioteca
 
-Sistemas de eletropostos comerciais modernos dependem de software de alto nível (Python, Java, Node.js) rodando em hardware genérico para executar operações **críticas e repetitivas** como:
+Conceitos de Arquitetura Aplicados
+Registradores x86: eax, ebx, ecx, edx — dados manipulados diretamente nos registradores, sem alocação desnecessária na memória heap.
+Instruções de comparação e desvio condicional: cmp + jl / je — lógica de controle implementada sem overhead de estruturas de alto nível.
+Chamada de sistema direta: int 0x80 com eax=4 (sys_write) e eax=1 (sys_exit) — nenhuma biblioteca intermediária (sem libc, sem stdio.h).
+Segmentação de memória: seção .data para dados estáticos; seção .text para instruções — modelo clássico de memória segmentada x86.
+Convenção de chamada manual: parâmetros passados diretamente via ecx e edx, retorno em eax — sem stack frame gerado automaticamente pelo compilador.
 
-- Controle de demanda elétrica em tempo real
-- Autenticação de usuários via RFID/NFC
-- Leitura contínua de sensores (corrente, tensão, temperatura)
-- Comunicação com protocolo OCPP
-
-Esse modelo gera consequências diretas para a sustentabilidade:
-
-- ❌ **Consumo excessivo de energia computacional** — operações simples desperdiçam centenas de ciclos de CPU por overhead de runtime
-- ❌ **Latência elevada** em decisões de controle de carga (tempo crítico)
-- ❌ **Hardware superdimensionado** — requer servidores ou mini-PCs quando um microcontrolador bastaria
-- ❌ **Maior pegada de carbono** — tanto na operação quanto na fabricação do hardware
-
----
-
-## 💡 Justificativa
-
-Em uma rede comercial como o **ChargeGrid Intelligence**, cada eletroposto opera 24 horas por dia, 365 dias por ano. A ineficiência computacional, multiplicada por dezenas ou centenas de unidades, representa um desperdício energético significativo e um custo operacional desnecessário.
-
-A otimização das rotinas críticas em **Assembly RISC-V** — especificamente na camada do Smart Charging Engine — permite:
-
-- Reduzir o consumo do controlador embarcado de ~15W para ~3W
-- Eliminar dependência de sistemas operacionais pesados
-- Executar decisões de controle em microssegundos, não milissegundos
-- Viabilizar o uso de microcontroladores de baixa potência (3.3V, ~100mA)
-
-Isso não é apenas uma otimização técnica — é uma decisão de sustentabilidade.
-
----
-
-## 🏗️ Arquitetura do Sistema
-
-```
-┌─────────────────────────────────────────────────────┐
-│                  Usuário / App                      │
-└─────────────────────┬───────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│              Frontend Dashboard                     │
-│         (Monitoramento em tempo real)               │
-└─────────────────────┬───────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│              Backend — FastAPI                      │
-│         (Orquestração e persistência)               │
-└─────────────────────┬───────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│         ★ Smart Charging Engine ★                   │  ← FOCO DESTA SPRINT
-│   Módulo de controle otimizado em Assembly RISC-V   │
-│  • Controle de demanda    • Autenticação RFID        │
-│  • Leitura de sensores    • Tarifação dinâmica       │
-└─────────────────────┬───────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│              OCPP Server                            │
-│       (Protocolo industrial de controle)            │
-└─────────────────────┬───────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│           Carregadores Simulados                    │
-│     (GoodWe EV Charger + FIAP Charger API)          │
-└─────────────────────────────────────────────────────┘
-```
-
-### Por que o Smart Charging Engine é o alvo?
-
-É a camada que executa as operações mais **frequentes e repetitivas** do sistema. A cada sessão de recarga, ela realiza centenas de ciclos de leitura-decisão-comando. Otimizá-la em Assembly representa o maior ganho de eficiência com o menor risco arquitetural.
-
----
-
-## ⚙️ Arquitetura de Processador Utilizada
-
-### RISC-V — Reduced Instruction Set Computer (5ª geração)
-
-| Característica | Impacto Prático |
-|----------------|-----------------|
-| Conjunto reduzido de instruções | Menos ciclos por operação → menor consumo |
-| Pipeline de 5 estágios (IF→ID→EX→MEM→WB) | Maior throughput com clock mais baixo |
-| Sem microcódigo (execução direta) | Zero overhead de decodificação extra |
-| Registradores de propósito geral (x0–x31) | Operações em memória mínimas |
-| ISA open-source | Ideal para hardware embarcado customizado |
-
-### RISC-V vs x86 para Controle Embarcado
-
-```
-x86 (CISC):
-  MOV, ADD com prefixos → decodificado em múltiplas micro-ops
-  Consumo: ~2–5W para operações de controle simples
-  Requer SO: Linux/Windows → overhead de kernel
-
-RISC-V (RISC):
-  1 instrução = 1 micro-operação = 1 ciclo (idealmente)
-  Consumo: ~0.1–0.3W em microcontroladores embarcados
-  Bare-metal: execução direta sem sistema operacional
-```
-
-### Conceitos de Arquitetura Aplicados
-
-- **Pipeline**: as rotinas são escritas para minimizar hazards de dados e controle
-- **Localidade de cache**: limiares de potência armazenados em registradores (`s0`–`s3`) durante o loop de controle
-- **Branch prediction friendly**: condições organizadas por frequência (caso mais comum primeiro)
-- **CPI (Cycles Per Instruction)**: média de 1.0 nas rotinas críticas vs ~3.5 em C não otimizado
-
----
-
-## 💻 Código Assembly — Smart Charging Engine
-
-### Arquivo: `charge_control.s`
-
-```asm
-; =========================================================
-; ChargeCore Firmware
-; NASM x86 32-bit
-; Compatível com OnlineGDB
-; =========================================================
-
-section .data
-
-sensor_potencia    dd 185
-limiar_maximo      dd 220
-nivel_demanda      dd 1
-
-msg_auth           db "SESSAO AUTORIZADA", 10
-len_auth           equ $ - msg_auth
-
-msg_ok             db "POTENCIA DENTRO DO LIMITE", 10
-len_ok             equ $ - msg_ok
-
-msg_high           db "POTENCIA ACIMA DO LIMITE", 10
-len_high           equ $ - msg_high
-
-msg_low            db "CARGA: 7.0 kW", 10
-len_low            equ $ - msg_low
-
-msg_med            db "CARGA: 11.0 kW", 10
-len_med            equ $ - msg_med
-
-msg_max            db "CARGA: 22.0 kW", 10
-len_max            equ $ - msg_max
-
-section .text
-global _start
-
-; =========================================================
-; print
-; ecx = mensagem
-; edx = tamanho
-; =========================================================
-print:
-    mov eax, 4
-    mov ebx, 1
-    int 0x80
-    ret
-
-; =========================================================
-; monitor_power
-;
-; eax = 0 -> ok
-; eax = 1 -> acima limite
-; =========================================================
+💻 Código Assembly — ChargeCore
+Rotina: monitor_power
+Lê o sensor de potência e verifica o limiar da rede.
 monitor_power:
-
-    mov eax, [sensor_potencia]
-    cmp eax, [limiar_maximo]
-
-    jl potencia_ok
-
-    mov eax, 1
+    mov eax, [sensor_potencia]   ; carrega leitura atual (185 = 18.5 kW)
+    cmp eax, [limiar_maximo]     ; compara com o limite máximo (220 = 22.0 kW)
+    jl  potencia_ok              ; se menor → dentro do limite
+    mov eax, 1                   ; caso contrário → retorna 1 (acima)
     ret
-
 potencia_ok:
-    mov eax, 0
+    mov eax, 0                   ; retorna 0 (dentro do limite)
     ret
 
-; =========================================================
-; adjust_charge
-;
-; eax = potência final
-; =========================================================
+Por que isso é eficiente? São 4 instruções para uma decisão completa. O equivalente em Python exige carregar o runtime CPython antes de executar qualquer linha.
+Rotina: adjust_charge
+Define a potência de saída conforme o nível de demanda.
 adjust_charge:
-
-    mov eax, [nivel_demanda]
-
+    mov eax, [nivel_demanda]   ; carrega nível atual (0, 1 ou 2)
     cmp eax, 0
-    je carga_baixa
-
+    je  carga_baixa            ; nível 0 → 7.0 kW (off-peak)
     cmp eax, 1
-    je carga_media
-
+    je  carga_media            ; nível 1 → 11.0 kW (padrão)
 carga_alta:
-    mov eax, 220
+    mov eax, 220               ; nível 2 → 22.0 kW (máximo)
     ret
-
 carga_media:
     mov eax, 110
     ret
-
 carga_baixa:
     mov eax, 70
     ret
 
-; =========================================================
-; MAIN
-; =========================================================
-_start:
+Rotina auxiliar: print
+Syscall direta para escrita no terminal — sem biblioteca.
+print:
+    mov eax, 4     ; syscall número 4 = sys_write
+    mov ebx, 1     ; file descriptor 1 = stdout
+    int 0x80       ; interrupção de software → chama o kernel Linux
+    ret
 
-    ; -------------------------
-    ; Autorização
-    ; -------------------------
-    mov ecx, msg_auth
-    mov edx, len_auth
-    call print
 
-    ; -------------------------
-    ; Monitoramento
-    ; -------------------------
-    call monitor_power
+📊 Comparativo: Assembly x86 vs Python
+Operação: verificar potência e exibir resultado
+Em Python:
+sensor = 185
+limiar = 220
+if sensor < limiar:
+    print("POTENCIA DENTRO DO LIMITE")
+else:
+    print("POTENCIA ACIMA DO LIMITE")
 
-    cmp eax, 0
-    je mostrar_ok
+Por trás dessas 4 linhas, o interpretador Python executa:
+Inicialização do runtime CPython
+Resolução de variáveis no dicionário de escopo (hash lookup)
+Chamada de print() → sys.stdout.write() → libc → kernel
+Estimativa: 50.000–200.000 instruções de máquina
+Em Assembly x86 (ChargeCore):
+mov eax, [sensor_potencia]
+cmp eax, [limiar_maximo]
+jl  potencia_ok
+; exibição via int 0x80 (3 instruções adicionais)
 
-mostrar_high:
+Total: 6–8 instruções de máquina
+Acesso ao kernel: direto via int 0x80, sem intermediários
+Métrica
+Python
+Assembly x86 (ChargeCore)
+Instruções de máquina (estimado)
+50.000–200.000
+6–8
+Dependência de runtime
+Sim (CPython ~30 MB)
+Não
+Acesso ao kernel
+Via libc → stdlib → kernel
+Direto (int 0x80)
+Camadas de software
+4+
+1
+Comportamento determinístico
+Não (GC, bytecodes)
+Sim
 
-    mov ecx, msg_high
-    mov edx, len_high
-    call print
 
-    jmp ajustar
+📊 Impactos Esperados
+Eficiência Computacional
+Redução drástica no número de instruções executadas por ciclo de operação.
+Resposta a eventos de demanda em microssegundos — sem esperar runtime inicializar.
+Firmware com footprint mínimo, compatível com microcontroladores de baixo custo.
+Eficiência Energética
+Controlador embarcado consome menos energia → menor dissipação de calor → menor necessidade de resfriamento ativo nos gabinetes dos eletropostos.
+Em uma rede de 1.000 eletropostos operando 24h/dia, a redução do consumo dos controladores representa economia estimada de 120–300 kWh/mês — equivalente a carregar ~15 veículos elétricos adicionais sem gerar nova demanda.
+Confiabilidade
+Código determinístico: sem garbage collector, sem máquina virtual, sem event loop assíncrono.
+Comportamento previsível em condições críticas (sobretensão, falha de rede, tentativa de autenticação inválida).
 
-mostrar_ok:
+🌿 Relação com Sustentabilidade e Energias Renováveis
+O ChargeGrid Intelligence gerencia eletropostos alimentados por fontes renováveis (solar + rede).
+ O ChargeCore agrega sustentabilidade em três camadas:
+Camada
+Como o Assembly contribui
+Hardware
+Menos instruções → menos ciclos de clock → menor consumo do chip controlador
+Rede elétrica
+Resposta mais rápida a excedente solar → mais energia limpa aproveitada em tempo real
+Ciclo de vida
+Firmware leve → hardware mais simples e durável → menos descarte eletrônico
 
-    mov ecx, msg_ok
-    mov edx, len_ok
-    call print
+Quando painéis solares geram excedente às 14h, o monitor_power detecta o evento e o adjust_charge eleva a potência de saída em microssegundos — sem esperar nenhum runtime. Isso maximiza o uso da energia limpa disponível naquele instante.
+O código eficiente é parte da infraestrutura verde.
+ Reduzir o consumo do controlador é tão sustentável quanto instalar mais painéis.
 
-; -------------------------
-; Ajustar carga
-; -------------------------
-ajustar:
+🔧 Como Executar no OnlineGDB
+Acesse onlinegdb.com
+No seletor de linguagem (canto superior direito), escolha Assembly (x86)
+Cole o conteúdo do arquivo chargecore_firmware.asm
+Clique em ▶ Run
+Saída esperada no terminal:
+SESSAO AUTORIZADA
+POTENCIA DENTRO DO LIMITE
+CARGA: 11.0 kW
 
-    call adjust_charge
 
-    cmp eax, 70
-    je print_low
+🔗 Links
+📹 Vídeo Pitch: (adicionar link do YouTube)
+💻 Repositório GitHub: (este repositório)
 
-    cmp eax, 110
-    je print_med
+📁 Estrutura do Repositório
+chargecore/
+├── README.md
+├── assembly/
+│   └── chargecore_firmware.asm    # Firmware principal (NASM x86 32-bit)
+├── comparativo/
+│   └── equivalente.py             # Código Python equivalente (para comparação)
+└── docs/
+    └── arquitetura.md             # Diagrama e análise de eficiência
 
-print_max:
 
-    mov ecx, msg_max
-    mov edx, len_max
-    call print
+Projeto desenvolvido para o EV Challenge 2026 — FIAP + GoodWe.
+ Sprint 1 — Arquitetura de Computadores.
 
-    jmp fim
-
-print_med:
-
-    mov ecx, msg_med
-    mov edx, len_med
-    call print
-
-    jmp fim
-
-print_low:
-
-    mov ecx, msg_low
-    mov edx, len_low
-    call print
-
-; -------------------------
-; Exit
-; -------------------------
-fim:
-
-    mov eax, 1
-    mov ebx, 0
-    int 0x80
-```
-
----
-
-## 📊 Comparação de Eficiência: Assembly vs C
-
-```
-Operação              | C (gcc -O0) | Assembly RISC-V | Redução
-----------------------|-------------|-----------------|--------
-Autenticação RFID     | ~320 ciclos |     ~48 ciclos  |   85%
-Controle de demanda   | ~180 ciclos |     ~28 ciclos  |   84%
-Leitura de sensor     |  ~40 ciclos |      ~8 ciclos  |   80%
-Envio comando OCPP    |  ~60 ciclos |     ~12 ciclos  |   80%
-TOTAL (1 ciclo)       | ~600 ciclos |     ~96 ciclos  |   84%
-```
-
-> *Estimativas baseadas em análise de ciclos RISC-V RV32I. Compilador gcc 12.x com -O0 (sem otimização).*
-
----
-
-## 🌱 Impacto Sustentável
-
-### Redução de Consumo Energético Computacional
-
-| Cenário | Consumo (controlador) | Consumo anual | CO₂ equiv. |
-|---------|-----------------------|---------------|------------|
-| Alto nível (x86) | 15W | 131,4 kWh | ~66 kg CO₂ |
-| Assembly RISC-V  | 3W  | 26,3 kWh  | ~13 kg CO₂ |
-| **Economia**     | **12W** | **105 kWh** | **~53 kg CO₂** |
-
-> *Por eletroposto. Para uma rede de 100 unidades: economia de 10.500 kWh/ano — equivalente a remover 1 carro a combustão da estrada por ano.*
-
-### Relação com Energias Renováveis
-
-O ChargeGrid Intelligence opera integrado a inversores solares GoodWe. Cada watt economizado no processamento computacional é um watt disponível para:
-
-- Carregar mais veículos elétricos
-- Reduzir a dependência da rede elétrica convencional
-- Aumentar o ROI da instalação solar
-
-### Ciclo Virtuoso
-
-```
-Código Assembly eficiente
-        ↓
-Microcontrolador de baixa potência (vs mini-PC)
-        ↓
-Menor consumo de energia computacional
-        ↓
-Mais energia solar disponível para recarga
-        ↓
-Mais veículos carregados por kWh de painel solar
-        ↓
-Mobilidade elétrica mais sustentável
-```
-
----
-
-## 🔗 Referências
-
-- RISC-V International — https://riscv.org/technical/specifications/
-- Patterson & Hennessy — *Computer Organization and Design: RISC-V Edition*, 2nd ed.
-- ANEEL Resolução Normativa nº 1.000/2021
-- OCPP Protocol 2.0.1 — Open Charge Alliance
-- GoodWe EV Charger API — https://developer.goodwe.com
-- Weste & Harris — *CMOS VLSI Design*, Cap. 5 (Consumo energético em lógica digital)
