@@ -13,6 +13,8 @@
 | _(Nome completo)_ | RM-XXXXX |
 | _(Nome completo)_ | RM-XXXXX |
 | _(Nome completo)_ | RM-XXXXX |
+| _(Nome completo)_ | RM-XXXXX |
+| _(Nome completo)_ | RM-XXXXX |
 
 ---
 
