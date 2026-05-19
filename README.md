@@ -1,12 +1,11 @@
-[README.md](https://github.com/user-attachments/files/27968036/README.md)
-# ⚡ ChargeCore — Módulo de Controle Embarcado para Eletropostos Comerciais
+#  ChargeCore — Módulo de Controle Embarcado para Eletropostos Comerciais
 
 > **EV Challenge 2026 · FIAP + GoodWe · Trilha: ChargeGrid Intelligence**  
 > Sprint 1 — Projeto Sustentável em Arquitetura de Computadores
 
 ---
 
-## 👥 Integrantes
+##  Integrantes
 
 | Nome | RM |
 |------|-----|
@@ -18,7 +17,7 @@
 
 ---
 
-## 🔴 O Problema
+## O Problema
 
 Eletropostos comerciais modernos operam 24 horas por dia, 7 dias por semana.  
 O software que gerencia suas operações críticas — autenticação de sessão, leitura de sensores de potência e controle de carga — geralmente roda em **sistemas de alto nível** (Python, Node.js, Java) sobre hardware genérico.
@@ -33,7 +32,7 @@ Em uma rede com centenas de eletropostos ativos simultaneamente, esse desperdíc
 
 ---
 
-## 💡 Justificativa
+## Justificativa
 
 A ineficiência está na camada de software, não no hardware.  
 Operações como **ler um sensor**, **comparar um limiar de potência** e **ajustar a carga de saída** são tarefas determinísticas e repetitivas — o cenário ideal para programação em **Assembly**.
@@ -49,7 +48,7 @@ A linguagem **Assembly x86 32-bit (NASM)** foi escolhida porque:
 
 ---
 
-## 🛠️ Proposta de Solução
+## Proposta de Solução
 
 **ChargeCore** é um módulo de firmware escrito em Assembly x86 32-bit (NASM) que substitui o software de alto nível nas operações críticas de um eletroposto comercial.
 
@@ -104,7 +103,7 @@ _start
 
 ---
 
-## 🏗️ Arquitetura Utilizada
+## Arquitetura Utilizada
 
 | Componente | Escolha | Justificativa |
 |---|---|---|
@@ -123,7 +122,7 @@ _start
 
 ---
 
-## 💻 Código Assembly — ChargeCore
+## Código Assembly — ChargeCore
 
 ```nasm
 section .data
@@ -291,7 +290,7 @@ fim:
 
 
 
-## 📊 Comparativo: Assembly x86 vs Python
+## Comparativo: Assembly x86 vs Python
 
 ### Operação: verificar potência e exibir resultado
 
@@ -331,7 +330,7 @@ jl  potencia_ok
 
 ---
 
-## 📊 Impactos Esperados
+## Impactos Esperados
 
 ### Eficiência Computacional
 - Redução drástica no número de instruções executadas por ciclo de operação.
@@ -348,7 +347,7 @@ jl  potencia_ok
 
 ---
 
-## 🌿 Relação com Sustentabilidade e Energias Renováveis
+## Relação com Sustentabilidade e Energias Renováveis
 
 O ChargeGrid Intelligence gerencia eletropostos alimentados por fontes renováveis (solar + rede).  
 O ChargeCore agrega sustentabilidade em **três camadas**:
@@ -375,10 +374,10 @@ CARGA: 11.0 kW
 
 ---
 
-## 🔗 Links
+## Links
 
-- 📹 **Vídeo Pitch:** _(adicionar link do YouTube)_
-- 💻 **Repositório GitHub:** _(este repositório)_
+- **Vídeo Pitch:** _(adicionar link do YouTube)_
+- **Repositório GitHub:** _(este repositório)_
 
 ---
 
