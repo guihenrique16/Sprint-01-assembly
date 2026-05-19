@@ -9,11 +9,11 @@
 
 | Nome | RM |
 |------|-----|
-| _(Nome completo)_ | RM-XXXXX |
-| _(Nome completo)_ | RM-XXXXX |
-| _(Nome completo)_ | RM-XXXXX |
-| _(Nome completo)_ | RM-XXXXX |
-| _(Nome completo)_ | RM-XXXXX |
+| _(Gabriel Jurado Nogueira)_ | RM- 571236 |
+| _(Mariana Carminato)_ | RM-573258 |
+| _(Vinicius Torralles Ferreira Conduta)_ | RM-570911 |
+| _(Guilherme Henrique de Almeida)_ | RM-568708 |
+| _(Guilherme Garbelini)_ | RM-571150 |
 
 ---
 
