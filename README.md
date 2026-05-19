@@ -125,57 +125,171 @@ _start
 
 ## 💻 Código Assembly — ChargeCore
 
-### Rotina: `monitor_power`
-Lê o sensor de potência e verifica o limiar da rede.
-
 ```nasm
+section .data
+
+sensor_potencia    dd 185
+limiar_maximo      dd 220
+nivel_demanda      dd 1
+
+msg_auth           db "SESSAO AUTORIZADA", 10
+len_auth           equ $ - msg_auth
+
+msg_ok             db "POTENCIA DENTRO DO LIMITE", 10
+len_ok             equ $ - msg_ok
+
+msg_high           db "POTENCIA ACIMA DO LIMITE", 10
+len_high           equ $ - msg_high
+
+msg_low            db "CARGA: 7.0 kW", 10
+len_low            equ $ - msg_low
+
+msg_med            db "CARGA: 11.0 kW", 10
+len_med            equ $ - msg_med
+
+msg_max            db "CARGA: 22.0 kW", 10
+len_max            equ $ - msg_max
+
+section .text
+global _start
+
+; print
+; ecx = mensagem
+; edx = tamanho
+
+print:
+    mov eax, 4
+    mov ebx, 1
+    int 0x80
+    ret
+
+
+; monitor_power
+;
+; eax = 0 -> ok
+; eax = 1 -> acima limite
+
 monitor_power:
-    mov eax, [sensor_potencia]   ; carrega leitura atual (185 = 18.5 kW)
-    cmp eax, [limiar_maximo]     ; compara com o limite máximo (220 = 22.0 kW)
-    jl  potencia_ok              ; se menor → dentro do limite
-    mov eax, 1                   ; caso contrário → retorna 1 (acima)
+
+    mov eax, [sensor_potencia]
+    cmp eax, [limiar_maximo]
+
+    jl potencia_ok
+
+    mov eax, 1
     ret
+
 potencia_ok:
-    mov eax, 0                   ; retorna 0 (dentro do limite)
+    mov eax, 0
     ret
-```
 
-> **Por que isso é eficiente?** São 4 instruções para uma decisão completa.
-> O equivalente em Python exige carregar o runtime CPython antes de executar qualquer linha.
 
-### Rotina: `adjust_charge`
-Define a potência de saída conforme o nível de demanda.
+; adjust_charge
 
-```nasm
+; eax = potência final
+
 adjust_charge:
-    mov eax, [nivel_demanda]   ; carrega nível atual (0, 1 ou 2)
+
+    mov eax, [nivel_demanda]
+
     cmp eax, 0
-    je  carga_baixa            ; nível 0 → 7.0 kW (off-peak)
+    je carga_baixa
+
     cmp eax, 1
-    je  carga_media            ; nível 1 → 11.0 kW (padrão)
+    je carga_media
+
 carga_alta:
-    mov eax, 220               ; nível 2 → 22.0 kW (máximo)
+    mov eax, 220
     ret
+
 carga_media:
     mov eax, 110
     ret
+
 carga_baixa:
     mov eax, 70
     ret
+
+
+; MAIN
+
+_start:
+
+
+    ; Autorização
+
+    mov ecx, msg_auth
+    mov edx, len_auth
+    call print
+
+
+    ; Monitoramento
+ 
+    call monitor_power
+
+    cmp eax, 0
+    je mostrar_ok
+
+mostrar_high:
+
+    mov ecx, msg_high
+    mov edx, len_high
+    call print
+
+    jmp ajustar
+
+mostrar_ok:
+
+    mov ecx, msg_ok
+    mov edx, len_ok
+    call print
+
+
+; Ajustar carga
+
+ajustar:
+
+    call adjust_charge
+
+    cmp eax, 70
+    je print_low
+
+    cmp eax, 110
+    je print_med
+
+print_max:
+
+    mov ecx, msg_max
+    mov edx, len_max
+    call print
+
+    jmp fim
+
+print_med:
+
+    mov ecx, msg_med
+    mov edx, len_med
+    call print
+
+    jmp fim
+
+print_low:
+
+    mov ecx, msg_low
+    mov edx, len_low
+    call print
+
+
+; Exit
+
+fim:
+
+    mov eax, 1
+    mov ebx, 0
+    int 0x80
 ```
 
-### Rotina auxiliar: `print`
-Syscall direta para escrita no terminal — sem biblioteca.
 
-```nasm
-print:
-    mov eax, 4     ; syscall número 4 = sys_write
-    mov ebx, 1     ; file descriptor 1 = stdout
-    int 0x80       ; interrupção de software → chama o kernel Linux
-    ret
-```
-
----
 
 ## 📊 Comparativo: Assembly x86 vs Python
 
