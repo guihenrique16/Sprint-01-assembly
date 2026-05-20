@@ -376,7 +376,7 @@ CARGA: 11.0 kW
 
 ## Links
 
-- **Vídeo Pitch:** _([adicionar link do YouTube](https://youtu.be/xghVZnPAnjs?si=NT6lYoqWzUAjJzPu))_
+- **Vídeo Pitch:** _([](https://youtu.be/xghVZnPAnjs?si=NT6lYoqWzUAjJzPu))_
 
 
 ---
