@@ -376,8 +376,8 @@ CARGA: 11.0 kW
 
 ## Links
 
-- **Vídeo Pitch:** _(adicionar link do YouTube)_
-- **Repositório GitHub:** _(este repositório)_
+- **Vídeo Pitch:** _([adicionar link do YouTube](https://youtu.be/xghVZnPAnjs?si=NT6lYoqWzUAjJzPu))_
+
 
 ---
 
